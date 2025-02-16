@@ -1,5 +1,5 @@
 # Scaffold
-Scaffold is an ORM and HTTP library for building fast REST APIs. 
+Scaffold is an ORM and HTTP library for building fast REST APIs. This project is barely in its alpha phase, expect many things to change.
 
 ## Example
 ```go
