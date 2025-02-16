@@ -11,25 +11,25 @@ func main() {
 	c := scaffold.NewCollection(scaffold.CollectionOpts[SomeStruct]{
 		Name: "Some Struct",
 		Slug: "some-struct",
-		Middleware: []gin.HandlerFunc{          // define middleware
-			func(c *gin.Context) {              // Custom logic to lookup a user could go here
+		Middleware: []gin.HandlerFunc{         		// define middleware
+			func(c *gin.Context) {              	// Custom logic to lookup a user could go here
 				c.Keys["user"] = "admin"        // set "user"
 				c.Next()
 			},
 		},
-        // Read is called when we are reading from the database
+        	// Read is called when we are reading from the database
 		Read: func(ctx context.Context, id primitive.ObjectID, data SomeStruct) (SomeStruct, error) {
-            // look up the user
+            		// look up the user
 			fmt.Println(ctx.Value("user")) // admin
 			return data, nil // return data without error
 		},
-        // Write is called when we are writing a new object to the database
+        	// Write is called when we are writing a new object to the database
 		Write: func(ctx context.Context, id primitive.ObjectID, data SomeStruct) (SomeStruct, error) {
 			return data, http.ErrForbidden{} // Prevent writing, send 403 forbidden.
 		},
 	})
 
-    // Create new Scaffold instance
+    	// Create new Scaffold instance
 	s := scaffold.New(scaffold.ScaffoldOpts{
 		Collections: []scaffold.Collection{c},  // Add collections
 		MongoURI:    os.Getenv("MONGO_URI"),    // Set MongoDB URI
@@ -37,7 +37,7 @@ func main() {
 		Address:     os.Getenv("ADDRESS"),      // Set HTTP listen address
 	})
 
-    // Run Scaffold
+    	// Run Scaffold
 	if err := s.Run(context.Background()); err != nil {
 		panic(err)
 	}
