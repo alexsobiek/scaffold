@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -76,13 +77,23 @@ func (d *Document[T]) SetMany(ctx context.Context, fields map[string]interface{}
 			// Set the new value
 			field.Set(reflect.ValueOf(value))
 
-			// Add the changed field to the map
-			dbUpdates[fieldName] = value
+			// Get bson tag name
+			structField, ok := val.Type().FieldByName(fieldName)
+			if !ok {
+				return fmt.Errorf("could not find struct field for %s", fieldName)
+			}
+
+			bsonTag := structField.Tag.Get("bson")
+			if bsonTag == "" || bsonTag == "-" {
+				bsonTag = fieldName // Fallback to struct field name if no bson tag
+			} else {
+				bsonTag = strings.Split(bsonTag, ",")[0] // Ignore options like "omitempty"
+			}
+
+			// Add the changed field to the map with bson field name
+			dbUpdates[bsonTag] = value
 		}
 	}
-
-	// Perform any necessary logic with changed fields
-	// TODO: Use changedFields to update the DB, log changes, etc.
 
 	// Output the changed fields for demonstration
 	if len(dbUpdates) > 0 {
@@ -91,6 +102,8 @@ func (d *Document[T]) SetMany(ctx context.Context, fields map[string]interface{}
 		if err != nil {
 			return err
 		}
+
+		dbUpdates["last_updated"] = primitive.DateTime(time.Now().UnixNano() / int64(time.Millisecond))
 
 		_, err = d.collection.mc.UpdateByID(ctx, d.ID, bson.M{"$set": dbUpdates})
 		return err

@@ -146,7 +146,7 @@ func (c *C[T]) Find(ctx context.Context, filter interface{}) (*Document[T], erro
 	doc.collection = c
 
 	d, err := c.read(ctx, doc.ID, doc.Data)
- 
+
 	if err != nil {
 		return nil, err
 	}
