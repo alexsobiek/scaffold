@@ -45,7 +45,7 @@ func main() {
 ```
 ### Create new SomeStruct entry
 `curl -X POST -H "Content-Type: application/json" -d '{"name":"Test"}' http://localhost:3000/some-struct/`
-Success:
+#### Success
 ```
 {
   "data": {
@@ -58,7 +58,7 @@ Success:
   }
 }
 ```
-Forbidden:
+#### Forbidden
 ```
 {
   "error": "forbidden"
@@ -66,7 +66,7 @@ Forbidden:
 ```
 ### Retrieve created entry
 `curl http://localhost:3000/some-struct/67b18bd1d31ddd889a15529d`
-Success:
+#### Success
 ```
 {
   "data": {
