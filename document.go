@@ -91,7 +91,7 @@ func (d *Document[T]) SetMany(ctx context.Context, fields map[string]interface{}
 
 		// Only update if the value is different from the current one
 
-		if field.Interface() != value {
+		if !reflect.DeepEqual(field.Interface(), value) {
 			// Set the new value
 			field.Set(reflect.ValueOf(value))
 
