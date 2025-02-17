@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -54,58 +53,58 @@ func (d *Document[T]) Set(ctx context.Context, field string, val interface{}) er
 // SetMany updates multiple top-level fields and triggers a DB update.
 func (d *Document[T]) SetMany(ctx context.Context, fields map[string]interface{}) error {
 	// Create a map to track changed fields
-
 	dbUpdates := bson.M{}
 
-	// Loop through all fields in the map and apply logic
+	// Create a lookup map for BSON tags to struct field names
 	val := reflect.ValueOf(&d.Data).Elem()
-	for fieldName, value := range fields {
-		field := val.FieldByName(fieldName)
+	typ := val.Type()
 
-		// Check if the field exists and is valid
+	for i := 0; i < typ.NumField(); i++ {
+		structField := typ.Field(i)
+
+		names := getFieldNames(structField)
+
+		var ok bool
+		var value interface{}
+
+		value, ok = fields[names.BsonField]
+
+		if !ok {
+			value, ok = fields[names.StructName]
+		}
+
+		if !ok {
+			continue
+		}
+
+		field := val.FieldByName(names.StructName)
+
+		// If still invalid, return an error
 		if !field.IsValid() {
-			return fmt.Errorf("field %s does not exist", fieldName)
+			return fmt.Errorf("field %s does not exist", names.StructName)
 		}
 
 		// Check if the type matches
 		if field.Type() != reflect.TypeOf(value) {
-			return fmt.Errorf("value type does not match field type for %s", fieldName)
+			return fmt.Errorf("value type does not match field type for %s", names.StructName)
 		}
 
 		// Only update if the value is different from the current one
+
 		if field.Interface() != value {
 			// Set the new value
 			field.Set(reflect.ValueOf(value))
 
-			// Get bson tag name
-			structField, ok := val.Type().FieldByName(fieldName)
-			if !ok {
-				return fmt.Errorf("could not find struct field for %s", fieldName)
-			}
-
-			bsonTag := structField.Tag.Get("bson")
-			if bsonTag == "" || bsonTag == "-" {
-				bsonTag = fieldName // Fallback to struct field name if no bson tag
-			} else {
-				bsonTag = strings.Split(bsonTag, ",")[0] // Ignore options like "omitempty"
-			}
-
 			// Add the changed field to the map with bson field name
-			dbUpdates[bsonTag] = value
+			dbUpdates[names.BsonField] = value
 		}
 	}
 
 	// Output the changed fields for demonstration
 	if len(dbUpdates) > 0 {
-		dbUpdates, err := d.collection.update(ctx, d.ID, d.Data, dbUpdates)
-
-		if err != nil {
-			return err
-		}
-
 		dbUpdates["last_updated"] = primitive.DateTime(time.Now().UnixNano() / int64(time.Millisecond))
 
-		_, err = d.collection.mc.UpdateByID(ctx, d.ID, bson.M{"$set": dbUpdates})
+		_, err := d.collection.mc.UpdateByID(ctx, d.ID, bson.M{"$set": dbUpdates})
 		return err
 	}
 

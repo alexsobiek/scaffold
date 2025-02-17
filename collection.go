@@ -112,6 +112,7 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 	rg.Use(c.middleware...)
 	rg.POST("/", c.HandlePost)
 	rg.GET("/:id", c.HandleGetById)
+	rg.PATCH("/:id", c.HandlePatch)
 }
 
 func (c *C[T]) Insert(ctx context.Context, data T) (*Document[T], error) {
@@ -208,4 +209,53 @@ func (c *C[T]) HandlePost(ctx *gin.Context) {
 	}
 
 	http.Created(ctx, doc)
+}
+
+func (c *C[T]) HandlePatch(ctx *gin.Context) {
+	// Ensure Content-Type is application/json
+	if ctx.GetHeader("Content-Type") != "application/json" {
+		http.BadRequest(ctx, nil)
+		return
+	}
+
+	id, err := primitive.ObjectIDFromHex(ctx.Param("id"))
+
+	if err != nil {
+		http.BadRequest(ctx, errors.New("invalid id"))
+		return
+	}
+
+	doc, err := c.FindById(ctx, id)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			http.NotFound(ctx, nil)
+		} else {
+			http.Error(ctx, err)
+		}
+		return
+	}
+
+	var updates bson.M
+
+	if err := ctx.BindJSON(&updates); err != nil {
+		http.BadRequest(ctx, err)
+		return
+	}
+
+	updated, err := c.update(ctx, doc.ID, doc.Data, updates)
+
+	if err != nil {
+		http.Error(ctx, err)
+		return
+	}
+
+	err = doc.SetMany(ctx, updated)
+
+	if err != nil {
+		http.Error(ctx, err)
+		return
+	}
+
+	http.Ok(ctx, doc)
 }
