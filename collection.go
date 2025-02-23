@@ -42,6 +42,7 @@ type CollectionOpts[T any] struct {
 	Update     UpdateFn[T]
 	Delete     DeleteFn[T]
 	Middleware []gin.HandlerFunc
+	Routes     []gin.RouteInfo
 }
 
 type C[T any] struct {
@@ -54,6 +55,7 @@ type C[T any] struct {
 	update     UpdateFn[T]
 	delete     DeleteFn[T]
 	middleware []gin.HandlerFunc
+	routes     []gin.RouteInfo
 }
 
 func NewCollection[T any](opts CollectionOpts[T]) *C[T] {
@@ -96,6 +98,7 @@ func NewCollection[T any](opts CollectionOpts[T]) *C[T] {
 		update:     opts.Update,
 		delete:     opts.Delete,
 		middleware: opts.Middleware,
+		routes:     opts.Routes,
 	}
 }
 
@@ -110,9 +113,15 @@ func (c C[T]) Slug() string {
 func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 	c.mc = mc
 	rg.Use(c.middleware...)
-	rg.POST("/", c.HandlePost)
-	rg.GET("/:id", c.HandleGetById)
-	rg.PATCH("/:id", c.HandlePatch)
+
+	for i := range c.routes {
+		route := c.routes[i]
+		rg.Match([]string{route.Method}, route.Path, route.HandlerFunc)
+	}
+
+	rg.POST("/", c.handlePost)
+	rg.GET("/:id", c.handleGetById)
+	rg.PATCH("/:id", c.handlePatch)
 }
 
 func (c *C[T]) Insert(ctx context.Context, data T) (*Document[T], error) {
@@ -165,7 +174,7 @@ func (c *C[T]) FindById(ctx context.Context, id primitive.ObjectID) (*Document[T
 	return c.Find(ctx, bson.M{"_id": id})
 }
 
-func (c *C[T]) HandleGetById(ctx *gin.Context) {
+func (c *C[T]) handleGetById(ctx *gin.Context) {
 	id, err := primitive.ObjectIDFromHex(ctx.Param("id"))
 
 	if err != nil {
@@ -187,7 +196,7 @@ func (c *C[T]) HandleGetById(ctx *gin.Context) {
 	http.Ok(ctx, doc)
 }
 
-func (c *C[T]) HandlePost(ctx *gin.Context) {
+func (c *C[T]) handlePost(ctx *gin.Context) {
 	// Ensure Content-Type is application/json
 	if ctx.GetHeader("Content-Type") != "application/json" {
 		http.BadRequest(ctx, nil)
@@ -211,7 +220,7 @@ func (c *C[T]) HandlePost(ctx *gin.Context) {
 	http.Created(ctx, doc)
 }
 
-func (c *C[T]) HandlePatch(ctx *gin.Context) {
+func (c *C[T]) handlePatch(ctx *gin.Context) {
 	// Ensure Content-Type is application/json
 	if ctx.GetHeader("Content-Type") != "application/json" {
 		http.BadRequest(ctx, nil)
