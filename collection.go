@@ -120,7 +120,7 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 	for i := range c.defaults {
 		doc := c.defaults[i]
 
-		_, err := c.FindById(context.Background(), doc.ID)
+		_, err := c.FindById(Context, doc.ID)
 
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
@@ -140,7 +140,7 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 			doc.LastUpdated = now
 		}
 
-		_, err = c.mc.InsertOne(context.Background(), doc)
+		_, err = c.mc.InsertOne(Context, doc)
 
 		if err != nil {
 			panic(err)

@@ -8,6 +8,8 @@ import (
 	"github.com/alexsobiek/scaffold/http"
 )
 
+var Context = context.Background()
+
 type ScaffoldOpts struct {
 	Collections []Collection
 	MongoURI    string
