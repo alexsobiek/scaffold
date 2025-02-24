@@ -46,12 +46,12 @@ func (d *Document[T]) GetData() *T {
 }
 
 // Set updates a single top-level field and triggers a DB update.
-func (d *Document[T]) Set(ctx context.Context, field string, val interface{}) error {
-	return d.SetMany(ctx, map[string]interface{}{field: val})
+func (d *Document[T]) Set(ctx context.Context, field string, val any) error {
+	return d.SetMany(ctx, map[string]any{field: val})
 }
 
 // SetMany updates multiple top-level fields and triggers a DB update.
-func (d *Document[T]) SetMany(ctx context.Context, fields map[string]interface{}) error {
+func (d *Document[T]) SetMany(ctx context.Context, fields map[string]any) error {
 	// Create a map to track changed fields
 	dbUpdates := bson.M{}
 
