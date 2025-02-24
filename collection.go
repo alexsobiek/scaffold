@@ -126,6 +126,8 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 			if err != mongo.ErrNoDocuments {
 				panic(err)
 			}
+		} else {
+			return
 		}
 
 		now := primitive.DateTime(time.Now().UnixNano() / int64(time.Millisecond))
