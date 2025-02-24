@@ -141,6 +141,13 @@ func (c *C[T]) Insert(ctx context.Context, data T) (*Document[T], error) {
 		return nil, err
 	}
 
+	// Call read for any additional data processing
+	doc.Data, err = c.read(ctx, doc.ID, doc.Data)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return doc, nil
 }
 
