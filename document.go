@@ -14,7 +14,7 @@ type Document[T any] struct {
 	ID          primitive.ObjectID `bson:"_id" json:"id"`
 	Created     primitive.DateTime `bson:"created" json:"created"`
 	LastUpdated primitive.DateTime `bson:"last_updated" json:"last_updated"`
-	Data        T                  `bson:",inline" json:"document"`
+	Data        *T                 `bson:",inline" json:"document"`
 	collection  *C[T]              `bson:"-"`
 }
 
@@ -24,7 +24,7 @@ func createDocument[T any](collection *C[T], data T) *Document[T] {
 		ID:          primitive.NewObjectID(),
 		Created:     now,
 		LastUpdated: now,
-		Data:        data,
+		Data:        &data,
 		collection:  collection,
 	}
 }
@@ -41,7 +41,7 @@ func (d *Document[T]) GetLastUpdateTime() primitive.DateTime {
 	return d.LastUpdated
 }
 
-func (d *Document[T]) GetData() T {
+func (d *Document[T]) GetData() *T {
 	return d.Data
 }
 
@@ -56,7 +56,7 @@ func (d *Document[T]) SetMany(ctx context.Context, fields map[string]interface{}
 	dbUpdates := bson.M{}
 
 	// Create a lookup map for BSON tags to struct field names
-	val := reflect.ValueOf(&d.Data).Elem()
+	val := reflect.ValueOf(d.Data).Elem()
 	typ := val.Type()
 
 	for i := 0; i < typ.NumField(); i++ {

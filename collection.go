@@ -17,13 +17,13 @@ type AccessFn[T any] func(context.Context, primitive.ObjectID) error
 
 // ReadFn is a callback function which is called when a document is read from the database.
 // This function can be used to modify the data before it is returned to the caller.
-type ReadFn[T any] func(context.Context, primitive.ObjectID, T) (T, error)
+type ReadFn[T any] func(context.Context, primitive.ObjectID, *T) (*T, error)
 
 // WriteFn is a callback function which is called before a document is written to the database.
 // This function can be used to modify the data before it is written to the database.
-type WriteFn[T any] func(context.Context, primitive.ObjectID, T) (T, error)
+type WriteFn[T any] func(context.Context, primitive.ObjectID, *T) (*T, error)
 
-type UpdateFn[T any] func(context.Context, primitive.ObjectID, T, bson.M) (bson.M, error)
+type UpdateFn[T any] func(context.Context, primitive.ObjectID, *T, *bson.M) (*bson.M, error)
 
 type DeleteFn[T any] func(context.Context, primitive.ObjectID) error
 
@@ -66,19 +66,19 @@ func NewCollection[T any](opts CollectionOpts[T]) *C[T] {
 	}
 
 	if opts.Read == nil {
-		opts.Read = func(_ context.Context, id primitive.ObjectID, data T) (T, error) {
+		opts.Read = func(_ context.Context, id primitive.ObjectID, data *T) (*T, error) {
 			return data, nil
 		}
 	}
 
 	if opts.Write == nil {
-		opts.Write = func(_ context.Context, _ primitive.ObjectID, data T) (T, error) {
+		opts.Write = func(_ context.Context, _ primitive.ObjectID, data *T) (*T, error) {
 			return data, nil
 		}
 	}
 
 	if opts.Update == nil {
-		opts.Update = func(_ context.Context, _ primitive.ObjectID, _ T, updates bson.M) (bson.M, error) {
+		opts.Update = func(_ context.Context, _ primitive.ObjectID, _ *T, updates *bson.M) (*bson.M, error) {
 			return updates, nil
 		}
 	}
@@ -252,14 +252,14 @@ func (c *C[T]) handlePatch(ctx *gin.Context) {
 		return
 	}
 
-	updated, err := c.update(ctx, doc.ID, doc.Data, updates)
+	updated, err := c.update(ctx, doc.ID, doc.Data, &updates)
 
 	if err != nil {
 		http.Error(ctx, err)
 		return
 	}
 
-	err = doc.SetMany(ctx, updated)
+	err = doc.SetMany(ctx, *updated)
 
 	if err != nil {
 		http.Error(ctx, err)
