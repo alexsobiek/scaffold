@@ -3,6 +3,7 @@ package scaffold
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/alexsobiek/scaffold/http"
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,7 @@ type Collection interface {
 type CollectionOpts[T any] struct {
 	Name       string
 	Slug       string
+	Defaults   []Document[T]
 	Access     AccessFn[T]
 	Read       ReadFn[T]
 	Write      WriteFn[T]
@@ -48,6 +50,7 @@ type CollectionOpts[T any] struct {
 type C[T any] struct {
 	name       string
 	slug       string
+	defaults   []Document[T]
 	mc         *mongo.Collection
 	access     AccessFn[T]
 	read       ReadFn[T]
@@ -92,6 +95,7 @@ func NewCollection[T any](opts CollectionOpts[T]) *C[T] {
 	return &C[T]{
 		name:       opts.Name,
 		slug:       opts.Slug,
+		defaults:   opts.Defaults,
 		access:     opts.Access,
 		read:       opts.Read,
 		write:      opts.Write,
@@ -112,6 +116,35 @@ func (c C[T]) Slug() string {
 
 func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 	c.mc = mc
+
+	for i := range c.defaults {
+		doc := c.defaults[i]
+
+		_, err := c.FindById(context.Background(), doc.ID)
+
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				panic(err)
+			}
+		}
+
+		now := primitive.DateTime(time.Now().UnixNano() / int64(time.Millisecond))
+
+		if doc.Created == 0 {
+			doc.Created = now
+		}
+
+		if doc.LastUpdated == 0 {
+			doc.LastUpdated = now
+		}
+
+		_, err = c.mc.InsertOne(context.Background(), doc)
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	rg.Use(c.middleware...)
 
 	for i := range c.routes {
@@ -225,7 +258,7 @@ func (c *C[T]) handlePost(ctx *gin.Context) {
 	}
 
 	// Call read for any additional data processing
-	doc.Data, err = c.read(ctx , doc.ID, doc.Data)
+	doc.Data, err = c.read(ctx, doc.ID, doc.Data)
 
 	if err != nil {
 		http.Error(ctx, err)
