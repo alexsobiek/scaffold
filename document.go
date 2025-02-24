@@ -103,8 +103,14 @@ func (d *Document[T]) SetMany(ctx context.Context, fields map[string]any) error 
 	// Output the changed fields for demonstration
 	if len(dbUpdates) > 0 {
 		dbUpdates["last_updated"] = primitive.DateTime(time.Now().UnixNano() / int64(time.Millisecond))
+		dbUpdates, err := d.collection.update(ctx, d.ID, d.Data, &dbUpdates)
 
-		_, err := d.collection.mc.UpdateByID(ctx, d.ID, bson.M{"$set": dbUpdates})
+		if err != nil {
+			return err
+		}
+
+		_, err = d.collection.mc.UpdateByID(ctx, d.ID, bson.M{"$set": dbUpdates})
+
 		return err
 	}
 
