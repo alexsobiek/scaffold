@@ -224,6 +224,14 @@ func (c *C[T]) handlePost(ctx *gin.Context) {
 		return
 	}
 
+	// Call read for any additional data processing
+	doc.Data, err = c.read(ctx , doc.ID, doc.Data)
+
+	if err != nil {
+		http.Error(ctx, err)
+		return
+	}
+
 	http.Created(ctx, doc)
 }
 
