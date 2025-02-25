@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/alexsobiek/scaffold/http"
+	"github.com/alexsobiek/scaffold/query"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -186,10 +187,10 @@ func (c *C[T]) Insert(ctx context.Context, data T) (*Document[T], error) {
 	return doc, nil
 }
 
-func (c *C[T]) Find(ctx context.Context, filter interface{}) (*Document[T], error) {
+func (c *C[T]) Find(ctx context.Context, query query.Query) (*Document[T], error) {
 	var doc *Document[T]
 
-	err := c.mc.FindOne(ctx, filter).Decode(&doc)
+	err := c.mc.FindOne(ctx, query.Filter()).Decode(&doc)
 
 	if err != nil {
 		return nil, err
@@ -213,7 +214,7 @@ func (c *C[T]) FindById(ctx context.Context, id primitive.ObjectID) (*Document[T
 		return nil, err
 	}
 
-	return c.Find(ctx, bson.M{"_id": id})
+	return c.Find(ctx, query.ID(id))
 }
 
 func (c *C[T]) handleGetById(ctx *gin.Context) {
