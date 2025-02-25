@@ -11,9 +11,10 @@ const (
 
 type Element struct {
 	Operator ElementOperator
+	Field    string
 	Value    any
 }
 
 func (q *Element) Filter() bson.M {
-	return bson.M{string(q.Operator): q.Value}
+	return bson.M{q.Field: bson.M{string(q.Operator): q.Value}}
 }
