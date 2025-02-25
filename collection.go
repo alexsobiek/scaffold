@@ -127,7 +127,7 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 				panic(err)
 			}
 		} else {
-			return
+			continue
 		}
 
 		now := primitive.DateTime(time.Now().UnixNano() / int64(time.Millisecond))
