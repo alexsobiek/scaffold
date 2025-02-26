@@ -2,7 +2,7 @@ package query
 
 import "go.mongodb.org/mongo-driver/bson"
 
-type ComparisonOperator string
+type ComparisonOperator Operator
 
 const (
 	Equal              ComparisonOperator = "$eq"

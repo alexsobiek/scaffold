@@ -2,7 +2,7 @@ package query
 
 import "go.mongodb.org/mongo-driver/bson"
 
-type EvaluationOperator string
+type EvaluationOperator Operator
 
 const (
 	Expr  EvaluationOperator = "$expr"

@@ -2,7 +2,7 @@ package query
 
 import "go.mongodb.org/mongo-driver/bson"
 
-type LogicalOperator string
+type LogicalOperator Operator
 
 const (
 	And LogicalOperator = "$and"
@@ -23,5 +23,3 @@ func (q *Logical) Filter() bson.M {
 	}
 	return bson.M{string(q.Operator): filters}
 }
-
-//?query=logical(and, )

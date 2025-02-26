@@ -3,6 +3,7 @@ package scaffold
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/alexsobiek/scaffold/http"
@@ -11,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // AccessFn is a callback function which is called before a document is accessed from the database.
@@ -156,6 +158,7 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 	}
 
 	rg.POST("/", c.handlePost)
+	rg.GET("/", c.handleGet)
 	rg.GET("/:id", c.handleGetById)
 	rg.PATCH("/:id", c.handlePatch)
 }
@@ -215,6 +218,95 @@ func (c *C[T]) FindById(ctx context.Context, id primitive.ObjectID) (*Document[T
 	}
 
 	return c.Find(ctx, query.ID(id))
+}
+
+func (c *C[T]) FindMany(ctx context.Context, query query.Query, limit int, page int) ([]Document[T], error) {
+	var docs []Document[T]
+
+	lim := int64(limit)
+	skip := int64(page*limit - limit)
+	opts := &options.FindOptions{
+		Limit: &lim,
+		Skip:  &skip,
+	}
+
+	cur, err := c.mc.Find(ctx, query.Filter(), opts)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer cur.Close(ctx)
+
+	for cur.Next(ctx) {
+		var doc Document[T]
+
+		err := cur.Decode(&doc)
+
+		if err != nil {
+			return nil, err
+		}
+
+		err = c.access(ctx, doc.ID)
+
+		if err != nil {
+			// Skip over this document
+			continue
+		}
+
+		doc.collection = c
+
+		d, err := c.read(ctx, doc.ID, doc.Data)
+
+		if err != nil {
+			return nil, err
+		}
+
+		doc.Data = d
+
+		docs = append(docs, doc)
+	}
+	return docs, nil
+}
+
+func (c *C[T]) handleGet(ctx *gin.Context) {
+	var err error
+	limit := 10
+	page := 1
+
+	if ctx.Query("limit") != "" {
+		limit, err = strconv.Atoi(ctx.Query("limit"))
+
+		if err != nil {
+			http.BadRequest(ctx, err)
+			return
+		}
+	}
+
+	if ctx.Query("page") != "" {
+		page, err = strconv.Atoi(ctx.Query("page"))
+
+		if err != nil {
+			http.BadRequest(ctx, err)
+			return
+		}
+
+		if page < 1 {
+			http.BadRequest(ctx, errors.New("page must be greater than 0"))
+			return
+		}
+	}
+
+	query := query.Empty() // TODO: Implement query parsing
+
+	docs, err := c.FindMany(Context, query, limit, page)
+
+	if err != nil {
+		http.Error(ctx, err)
+		return
+	}
+
+	http.Paginated(ctx, page, docs)
 }
 
 func (c *C[T]) handleGetById(ctx *gin.Context) {

@@ -2,7 +2,7 @@ package query
 
 import "go.mongodb.org/mongo-driver/bson"
 
-type ElementOperator string
+type ElementOperator Operator
 
 const (
 	Exists ElementOperator = "$exists"
