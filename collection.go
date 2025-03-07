@@ -27,6 +27,8 @@ type ReadFn[T any] func(context.Context, primitive.ObjectID, *T) (*T, error)
 // This function can be used to modify the data before it is written to the database.
 type WriteFn[T any] func(context.Context, primitive.ObjectID, *T) (*T, error)
 
+type AfterInsertFn[T any] func(context.Context, *Document[T])
+
 type UpdateFn[T any] func(context.Context, primitive.ObjectID, *T, *bson.M) (*bson.M, error)
 
 type DeleteFn[T any] func(context.Context, primitive.ObjectID) error
@@ -38,30 +40,32 @@ type Collection interface {
 }
 
 type CollectionOpts[T any] struct {
-	Name       string
-	Slug       string
-	Defaults   []Document[T]
-	Access     AccessFn[T]
-	Read       ReadFn[T]
-	Write      WriteFn[T]
-	Update     UpdateFn[T]
-	Delete     DeleteFn[T]
-	Middleware []gin.HandlerFunc
-	Routes     []gin.RouteInfo
+	Name        string
+	Slug        string
+	Defaults    []Document[T]
+	Access      AccessFn[T]
+	Read        ReadFn[T]
+	Write       WriteFn[T]
+	AfterInsert AfterInsertFn[T]
+	Update      UpdateFn[T]
+	Delete      DeleteFn[T]
+	Middleware  []gin.HandlerFunc
+	Routes      []gin.RouteInfo
 }
 
 type C[T any] struct {
-	name       string
-	slug       string
-	defaults   []Document[T]
-	mc         *mongo.Collection
-	access     AccessFn[T]
-	read       ReadFn[T]
-	write      WriteFn[T]
-	update     UpdateFn[T]
-	delete     DeleteFn[T]
-	middleware []gin.HandlerFunc
-	routes     []gin.RouteInfo
+	name        string
+	slug        string
+	defaults    []Document[T]
+	mc          *mongo.Collection
+	access      AccessFn[T]
+	read        ReadFn[T]
+	write       WriteFn[T]
+	update      UpdateFn[T]
+	delete      DeleteFn[T]
+	afterInsert AfterInsertFn[T]
+	middleware  []gin.HandlerFunc
+	routes      []gin.RouteInfo
 }
 
 func NewCollection[T any](opts CollectionOpts[T]) *C[T] {
@@ -80,6 +84,11 @@ func NewCollection[T any](opts CollectionOpts[T]) *C[T] {
 	if opts.Write == nil {
 		opts.Write = func(_ context.Context, _ primitive.ObjectID, data *T) (*T, error) {
 			return data, nil
+		}
+	}
+
+	if opts.AfterInsert == nil {
+		opts.AfterInsert = func(_ context.Context, _ *Document[T]) {
 		}
 	}
 
@@ -161,6 +170,7 @@ func (c *C[T]) inject(mc *mongo.Collection, rg *gin.RouterGroup) {
 	rg.GET("/", c.handleGet)
 	rg.GET("/:id", c.handleGetById)
 	rg.PATCH("/:id", c.handlePatch)
+	rg.DELETE("/:id", c.handleDelete)
 }
 
 func (c *C[T]) Insert(ctx context.Context, data T) (*Document[T], error) {
@@ -186,6 +196,8 @@ func (c *C[T]) Insert(ctx context.Context, data T) (*Document[T], error) {
 	if err != nil {
 		return nil, err
 	}
+
+	c.afterInsert(ctx, doc)
 
 	return doc, nil
 }
@@ -410,4 +422,36 @@ func (c *C[T]) handlePatch(ctx *gin.Context) {
 	}
 
 	http.Ok(ctx, doc)
+}
+
+func (c *C[T]) handleDelete(ctx *gin.Context) {
+	id, err := primitive.ObjectIDFromHex(ctx.Param("id"))
+
+	if err != nil {
+		http.BadRequest(ctx, errors.New("invalid id"))
+		return
+	}
+
+	if err := c.delete(ctx, id); err != nil {
+		http.Error(ctx, err)
+		return
+	}
+
+	doc, err := c.FindById(ctx, id)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			http.NotFound(ctx, nil)
+		} else {
+			http.Error(ctx, err)
+		}
+		return
+	}
+
+	if err := doc.Delete(ctx); err != nil {
+		http.Error(ctx, err)
+		return
+	}
+
+	http.Ok(ctx, "")
 }
